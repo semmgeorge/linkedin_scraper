@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from time import sleep
+import logging
 
 from selenium.webdriver import Chrome
+from selenium.common.exceptions import TimeoutException
 
 from . import constants as c
 
@@ -77,45 +79,78 @@ class Scraper:
         action = webdriver.ActionChains(self.driver)
         action.move_to_element(elem).perform()
 
-    def wait_for_element_to_load(self, by=By.CLASS_NAME, name="pv-top-card", base=None):
+    def wait_for_element_to_load(self, by=By.CLASS_NAME, name="pv-top-card", base=None, timeout=None, log=False, default=None):
+        """Wait for an element to be present on the page with improved error handling.
+        
+        Args:
+            by: The locator strategy to use
+            name: The name/value of the locator
+            base: The driver or element to search within
+            timeout: Custom timeout in seconds (overrides default)
+            log: Whether to log timeouts
+            default: Value to return if element isn't found
+            
+        Returns:
+            The found element or default value if not found
+        """
         base = base or self.driver
-        return WebDriverWait(base, self.WAIT_FOR_ELEMENT_TIMEOUT).until(
-            EC.presence_of_element_located(
-                (
-                    by,
-                    name
-                )
-            )
-        )
-
-    def wait_for_all_elements_to_load(self, by=By.CLASS_NAME, name="pv-top-card", base=None):
-        base = base or self.driver
-        return WebDriverWait(base, self.WAIT_FOR_ELEMENT_TIMEOUT).until(
-            EC.presence_of_all_elements_located(
-                (
-                    by,
-                    name
-                )
-            )
-        )
-
-
-    def is_signed_in(self):
+        timeout = timeout or self.WAIT_FOR_ELEMENT_TIMEOUT
         try:
-            WebDriverWait(self.driver, self.WAIT_FOR_ELEMENT_TIMEOUT).until(
+            return WebDriverWait(base, timeout).until(
                 EC.presence_of_element_located(
                     (
-                        By.CLASS_NAME,
-                        c.VERIFY_LOGIN_ID,
+                        by,
+                        name
                     )
                 )
             )
+        except TimeoutException as e:
+            if log:
+                print(f"Timeout waiting for element: {name}")
+            return default
 
-            self.driver.find_element(By.CLASS_NAME, c.VERIFY_LOGIN_ID)
-            return True
+    def wait_for_all_elements_to_load(self, by=By.CLASS_NAME, name="pv-top-card", base=None, timeout=None, log=False, default=None):
+        """Wait for all matching elements to be present on the page with improved error handling.
+        
+        Args:
+            by: The locator strategy to use
+            name: The name/value of the locator
+            base: The driver or element to search within
+            timeout: Custom timeout in seconds (overrides default)
+            log: Whether to log timeouts
+            default: Value to return if elements aren't found (default: empty list)
+            
+        Returns:
+            The found elements or default value if not found
+        """
+        base = base or self.driver
+        timeout = timeout or self.WAIT_FOR_ELEMENT_TIMEOUT
+        default = default if default is not None else []
+        
+        try:
+            return WebDriverWait(base, timeout).until(
+                EC.presence_of_all_elements_located(
+                    (
+                        by,
+                        name
+                    )
+                )
+            )
+        except TimeoutException as e:
+            if log:
+                print(f"Timeout waiting for elements: {name}")
+            return default
+
+    def is_signed_in(self):
+        try:
+            element = self.wait_for_element_to_load(
+                By.CLASS_NAME, 
+                c.VERIFY_LOGIN_ID,
+                timeout=self.WAIT_FOR_ELEMENT_TIMEOUT
+            )
+            return element is not None
         except Exception as e:
-            pass
-        return False
+            return False
 
     def scroll_to_half(self):
         self.driver.execute_script(

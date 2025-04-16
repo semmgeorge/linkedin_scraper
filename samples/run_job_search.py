@@ -6,11 +6,13 @@ import argparse
 import pickle
 from pathlib import Path
 from dotenv import load_dotenv
-from linkedin_scraper import Person, actions
+from linkedin_scraper import PeopleSearch, JobSearch, actions
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import WebDriverException
+
+load_dotenv()
 
 headless=False
 cookies_file=None
@@ -30,7 +32,16 @@ chrome_service = Service(executable_path="/opt/homebrew/bin/chromedriver")
 
 driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
+
 email = os.getenv("LINKEDIN_USER")
 password = os.getenv("LINKEDIN_PASSWORD")
 actions.login(driver, email, password) # if email and password isnt given, it'll prompt in terminal
-person = Person("https://www.linkedin.com/in/andre-iguodala-65b48ab5", driver=driver)
+
+# Replace Person with PeopleSearch
+# peopleSearch = PeopleSearch(driver=driver, close_on_complete=False, scrape=False)
+# job_listings = peopleSearch.search("George Maksimenko")
+job_search = JobSearch(driver=driver, close_on_complete=False, scrape=False)
+job_listings = job_search.search("doctor") 
+print(f"Found {len(job_listings)} profiles:")
+for profile_url in job_listings:
+    print(profile_url)
